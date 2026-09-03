@@ -170,6 +170,47 @@ for (const name in groups) {
     pickedList.push((isForced ? "[กำหนดเอง] " : "") + name + "  ->  " + norm(labelOf(target)));
 }
 
+// ===== กด Enter ในช่องพิมพ์ = กระโดดไปช่องถัดไปอัตโนมัติ (ไม่ต้องเลื่อนเอง) =====
+(function installEnterToNext() {
+    if (window.__enterToNextInstalled) return;
+    window.__enterToNextInstalled = true;
+    const SEL = 'input:not([type=hidden]):not([type=button]):not([type=submit])'
+              + ':not([type=reset]):not([type=image]), textarea, select';
+    const isVisible = el => {
+        if (el.disabled || el.readOnly) return false;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) return false;
+        return el.offsetParent !== null;
+    };
+    // รายชื่อช่องที่โฟกัสได้ เรียงตามลำดับในหน้า (radio/checkbox เก็บแค่ตัวแรกของกลุ่ม)
+    const buildList = () => {
+        const seen = new Set();
+        return Array.from(document.querySelectorAll(SEL)).filter(el => {
+            if (!isVisible(el)) return false;
+            if (el.type === 'radio' || el.type === 'checkbox') {
+                if (seen.has(el.name)) return false;
+                seen.add(el.name);
+            }
+            return true;
+        });
+    };
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' || e.isComposing) return;
+        const t = e.target;
+        if (!t || !t.matches || !t.matches(SEL)) return;
+        if (t.tagName === 'TEXTAREA' && e.shiftKey) return; // Shift+Enter = ขึ้นบรรทัดใหม่
+        e.preventDefault();
+        e.stopPropagation();
+        const list = buildList();
+        const i = list.indexOf(t);
+        if (i === -1 || !list[i + 1]) return;
+        const next = list[i + 1];
+        next.focus({ preventScroll: true });
+        try { if (next.select) next.select(); } catch (_) {}
+        next.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, true);
+})();
+
 return JSON.stringify({
     totalGroups: Object.keys(groups).length,
     picked: picked,
@@ -223,6 +264,8 @@ def auto_fill_survey():
     print("  - รหัสอาสาสมัคร 6 หลัก / วันที่กรอกแบบฟอร์ม")
     print("  - อายุ / วันเดือนปีเกิด / รายได้ / เวลานอน-ตื่น / คะแนนสุขภาพ 0-100")
     print("  - ช่อง 'อื่นๆ ระบุ...' ต่าง ๆ")
+    print("\n>> พิมพ์ในช่องแล้วกด Enter = กระโดดไปช่องถัดไปให้อัตโนมัติ (ไม่ต้องเลื่อนเอง)")
+    print("   ถ้าช่องเป็นกล่องข้อความหลายบรรทัด อยากขึ้นบรรทัดใหม่ให้กด Shift+Enter")
 
     print("\n" + "-" * 60)
     print("ตอนนี้เบราว์เซอร์เปิดค้างไว้ให้แล้ว")

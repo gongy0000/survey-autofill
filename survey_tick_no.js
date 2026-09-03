@@ -13,6 +13,7 @@
    4. เลือกข้อความในไฟล์นี้ "ทั้งหมด" (ตั้งแต่บรรทัด (() => {  จนจบไฟล์)
       -> Copy -> วางใน Console -> กด Enter
    5. โปรแกรมจะติ๊กให้ทั้งหน้า แล้วขึ้นสรุป
+      + เปิดโหมด "พิมพ์แล้วกด Enter = ไปช่องถัดไปอัตโนมัติ" (Shift+Enter = ขึ้นบรรทัดใหม่)
    6. กรอกช่องที่ต้องพิมพ์เอง + ข้อที่ข้าม -> ตรวจทาน -> กดส่งในเว็บ
 
    ---------- ข้อยกเว้นที่กำหนดคำตอบไว้แล้ว ----------
@@ -137,10 +138,53 @@
   console.log("รหัสอาสาสมัคร 6 หลัก, วันที่กรอกฟอร์ม, อายุ/วันเกิด, รายได้,");
   console.log("เวลานอน-ตื่น, คะแนนสุขภาพ 0-100, ช่อง 'อื่นๆ ระบุ...'");
 
+  // ================= กด Enter ในช่องพิมพ์ = ไปช่องถัดไปอัตโนมัติ (ไม่ต้องเลื่อน) =================
+  (function installEnterToNext() {
+    if (window.__enterToNextInstalled) return;
+    window.__enterToNextInstalled = true;
+    const SEL = 'input:not([type=hidden]):not([type=button]):not([type=submit])'
+              + ':not([type=reset]):not([type=image]), textarea, select';
+    const isVisible = (el) => {
+      if (el.disabled || el.readOnly) return false;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) return false;
+      return el.offsetParent !== null;
+    };
+    // รายชื่อช่องที่โฟกัสได้ เรียงตามลำดับในหน้า (radio/checkbox เก็บแค่ตัวแรกของกลุ่ม)
+    const buildList = () => {
+      const seen = new Set();
+      return Array.from(document.querySelectorAll(SEL)).filter((el) => {
+        if (!isVisible(el)) return false;
+        if (el.type === "radio" || el.type === "checkbox") {
+          if (seen.has(el.name)) return false;
+          seen.add(el.name);
+        }
+        return true;
+      });
+    };
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" || e.isComposing) return;
+      const t = e.target;
+      if (!t || !t.matches || !t.matches(SEL)) return;
+      if (t.tagName === "TEXTAREA" && e.shiftKey) return; // Shift+Enter = ขึ้นบรรทัดใหม่
+      e.preventDefault();
+      e.stopPropagation();
+      const list = buildList();
+      const i = list.indexOf(t);
+      if (i === -1 || !list[i + 1]) return;
+      const next = list[i + 1];
+      next.focus({ preventScroll: true });
+      try { if (next.select) next.select(); } catch (_) {}
+      next.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, true);
+    console.log(">> เปิดโหมด: พิมพ์แล้วกด Enter = ไปช่องถัดไปอัตโนมัติ (Shift+Enter = ขึ้นบรรทัดใหม่)");
+  })();
+
   alert(
     "ติ๊กให้แล้ว " + picked + " ข้อ (กำหนดเอง " + forced + " ข้อ)\n" +
     "เว้นว่างตามสั่ง " + excluded.length + " ข้อ\n" +
     "ข้ามให้ตอบเอง " + skipped.length + " ข้อ\n\n" +
+    "พิมพ์ในช่องแล้วกด Enter = กระโดดไปช่องถัดไปอัตโนมัติ\n\n" +
     "เปิด Console (F12) ดูรายละเอียด แล้วตรวจทาน + กรอกช่องพิมพ์ + กดส่ง"
   );
 })();
